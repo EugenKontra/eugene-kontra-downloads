@@ -26,15 +26,18 @@ jobs:
       - name: Prepare source
         shell: pwsh
         run: |
-          $unpack = Join-Path $env:RUNNER_TEMP 'tunewink-unpack'
-          Expand-Archive -Path 'downloads/TuneWink-v2.0.0-source.zip' -DestinationPath $unpack -Force
-          $buildScript = Get-ChildItem -Path $unpack -Filter 'build-tunewink-release.ps1' -Recurse -File | Select-Object -First 1
-          if (!$buildScript) {
-            Get-ChildItem -Path $unpack -Recurse | Select-Object -First 50 FullName | Format-Table -AutoSize
-            throw 'TuneWink source archive is incomplete: build script was not found after extraction.'
+          $unpackPath = Join-Path $env:RUNNER_TEMP 'tunewink-unpack'
+          New-Item -ItemType Directory -Path $unpackPath -Force | Out-Null
+          Write-Host "Extracting source into: $unpackPath"
+          tar -xf 'downloads/TuneWink-v2.0.0-source.zip' -C $unpackPath
+          $projectRoot = Join-Path $unpackPath 'TuneWink_2.0'
+          $buildPath = Join-Path $projectRoot 'build-tunewink-release.ps1'
+          Write-Host "Expected build script: $buildPath"
+          if (!(Test-Path -LiteralPath $buildPath -PathType Leaf)) {
+            Get-ChildItem -LiteralPath $unpackPath -Force | Format-Table Name,Mode,Length
+            throw "TuneWink source archive is incomplete; missing $buildPath"
           }
-          $project = $buildScript.Directory.FullName
-          "TUNEWINK_ROOT=$project" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "TUNEWINK_ROOT=$projectRoot" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build plugin and helper
         shell: pwsh
         run: '& (Join-Path $env:TUNEWINK_ROOT "build-tunewink-release.ps1")'
