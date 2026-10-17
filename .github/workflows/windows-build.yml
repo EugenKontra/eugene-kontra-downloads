@@ -28,8 +28,12 @@ jobs:
         run: |
           $unpack = Join-Path $env:RUNNER_TEMP 'tunewink-unpack'
           Expand-Archive -Path 'downloads/TuneWink-v2.0.0-source.zip' -DestinationPath $unpack -Force
-          $project = Join-Path $unpack 'TuneWink_2.0'
-          if (!(Test-Path (Join-Path $project 'build-tunewink-release.ps1'))) { throw 'TuneWink source archive is incomplete.' }
+          $buildScript = Get-ChildItem -Path $unpack -Filter 'build-tunewink-release.ps1' -Recurse -File | Select-Object -First 1
+          if (!$buildScript) {
+            Get-ChildItem -Path $unpack -Recurse | Select-Object -First 50 FullName | Format-Table -AutoSize
+            throw 'TuneWink source archive is incomplete: build script was not found after extraction.'
+          }
+          $project = $buildScript.Directory.FullName
           "TUNEWINK_ROOT=$project" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Build plugin and helper
         shell: pwsh
@@ -42,7 +46,7 @@ jobs:
         with:
           name: TuneWink-2.0.0-Windows-x64
           path: |
-            ${{ runner.temp }}/tunewink-unpack/TuneWink_2.0/release/*.exe
-            ${{ runner.temp }}/tunewink-unpack/TuneWink_2.0/release/*.zip
+            ${{ runner.temp }}/tunewink-unpack/**/release/*.exe
+            ${{ runner.temp }}/tunewink-unpack/**/release/*.zip
           if-no-files-found: error
           retention-days: 30
