@@ -28,11 +28,12 @@ jobs:
         run: |
           $unpackPath = Join-Path $env:RUNNER_TEMP 'tunewink-unpack'
           New-Item -ItemType Directory -Path $unpackPath -Force | Out-Null
-          Write-Host "Extracting source into: $unpackPath"
-          tar -xf 'downloads/TuneWink-v2.0.0-source.zip' -C $unpackPath
+          $archivePath = (Resolve-Path 'downloads/TuneWink-v2.0.0-source.zip').Path
+          Write-Host "Extracting source archive: $archivePath"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          [System.IO.Compression.ZipFile]::ExtractToDirectory($archivePath, $unpackPath, $true)
           $projectRoot = Join-Path $unpackPath 'TuneWink_2.0'
           $buildPath = Join-Path $projectRoot 'build-tunewink-release.ps1'
-          Write-Host "Expected build script: $buildPath"
           if (!(Test-Path -LiteralPath $buildPath -PathType Leaf)) {
             Get-ChildItem -LiteralPath $unpackPath -Force | Format-Table Name,Mode,Length
             throw "TuneWink source archive is incomplete; missing $buildPath"
