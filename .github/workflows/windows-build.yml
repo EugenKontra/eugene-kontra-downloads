@@ -1,0 +1,48 @@
+name: TuneWink 2.0 Windows build
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'downloads/TuneWink-v2.0.0-source.zip'
+      - '.github/workflows/windows-build.yml'
+  push:
+    paths:
+      - 'downloads/TuneWink-v2.0.0-source.zip'
+      - '.github/workflows/windows-build.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+      - name: Prepare source
+        shell: pwsh
+        run: |
+          $unpack = Join-Path $env:RUNNER_TEMP 'tunewink-unpack'
+          Expand-Archive -Path 'downloads/TuneWink-v2.0.0-source.zip' -DestinationPath $unpack -Force
+          $project = Join-Path $unpack 'TuneWink_2.0'
+          if (!(Test-Path (Join-Path $project 'build-tunewink-release.ps1'))) { throw 'TuneWink source archive is incomplete.' }
+          "TUNEWINK_ROOT=$project" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Build plugin and helper
+        shell: pwsh
+        run: '& (Join-Path $env:TUNEWINK_ROOT "build-tunewink-release.ps1")'
+      - name: Build installer and retail package
+        shell: pwsh
+        run: '& (Join-Path $env:TUNEWINK_ROOT "installer/build-final-exes.ps1")'
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: TuneWink-2.0.0-Windows-x64
+          path: |
+            ${{ runner.temp }}/tunewink-unpack/TuneWink_2.0/release/*.exe
+            ${{ runner.temp }}/tunewink-unpack/TuneWink_2.0/release/*.zip
+          if-no-files-found: error
+          retention-days: 30
