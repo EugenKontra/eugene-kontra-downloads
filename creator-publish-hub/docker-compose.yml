@@ -1,0 +1,24 @@
+# Запуск: docker compose up -d --build
+# Профиль tunnel добавляет бесплатный Cloudflare Tunnel (HTTPS-адрес без открытия портов).
+services:
+  web:
+    build: .
+    env_file: .env
+    environment: { DATA_DIR: /data }
+    volumes: [ "hub-data:/data" ]
+    ports: [ "127.0.0.1:3000:3000" ]
+    restart: unless-stopped
+  worker:
+    build: .
+    env_file: .env
+    environment: { DATA_DIR: /data }
+    volumes: [ "hub-data:/data" ]
+    command: ["npx", "tsx", "src/worker/index.ts"]
+    restart: unless-stopped
+  tunnel:
+    image: cloudflare/cloudflared:2025.10.0
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    profiles: [ "tunnel" ]
+volumes:
+  hub-data:
